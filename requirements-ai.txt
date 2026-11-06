@@ -1,0 +1,13 @@
+# Optional model packages. These can take several GB and may require a CUDA toolkit.
+faster-whisper>=1.1
+rembg[cpu]>=2.0.60
+piper-tts>=1.2
+transformers>=4.45
+sentencepiece>=0.2
+torch>=2.4
+torchvision>=0.19
+realesrgan>=0.3.0
+basicsr>=1.4.2
+opencv-python-headless>=4.10
+mediapipe>=0.10
+demucs>=4.0
