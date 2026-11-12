@@ -1,1113 +1,817 @@
-<!doctype html>
+
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#101b2c">
-  <title>Ridge Runner — Hill Ride</title>
-  <style>
-    :root {
-      color-scheme: dark;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      --ink: #f5f2e9;
-      --muted: #a7b3bd;
-      --lime: #d7f36a;
-      --panel: rgba(15, 27, 40, .78);
-      --line: rgba(255,255,255,.12);
-    }
-    * { box-sizing: border-box; }
-    body {
-      min-width: 0;
-      min-height: 100vh;
-      margin: 0;
-      overflow: hidden;
-      color: var(--ink);
-      background: #101b2c;
-    }
-    button { font: inherit; }
-    .game {
-      position: relative;
-      width: 100vw;
-      height: 100vh;
-      height: 100dvh;
-      min-height: 0;
-      overflow: hidden;
-      isolation: isolate;
-      background: #91d3dc;
-    }
-    canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-    .topbar {
-      position: absolute;
-      z-index: 2;
-      top: max(10px, env(safe-area-inset-top));
-      right: 12px;
-      left: 12px;
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      pointer-events: none;
-    }
-    .game-hud { display: grid; width: 145px; gap: 5px; pointer-events: none; }
-    .fuel-card {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      padding: 2px 6px;
-      border: 1px solid rgba(53,61,55,.8);
-      border-radius: 3px;
-      color: #202c27;
-      background: linear-gradient(#f4f3df,#c9d1c1);
-      box-shadow: 1px 2px 0 rgba(0,0,0,.35);
-    }
-    .fuel-symbol { font-size: 17px; line-height: 1; }
-    .fuel-copy { flex: 1; }
-    .fuel-title { display: none; }
-    .fuel-track { height: 15px; padding: 1px; border: 1px solid #536363; background: #d9e3dd; }
-    .fuel-fill { width: 100%; height: 100%; background: linear-gradient(90deg,#9bec19 0 48%,#84dff0 48%); transition: width .2s, background .2s; }
-    .currency-row { display: flex; align-items: center; gap: 5px; }
-    .currency-pill {
-      display: flex;
-      min-width: 70px;
-      align-items: center;
-      gap: 5px;
-      padding: 2px 5px;
-      color: #fff;
-      font-size: 17px;
-      font-weight: 950;
-      line-height: 1;
-      text-shadow: 1px 2px #293129, -1px -1px #293129, 1px -1px #293129, -1px 1px #293129;
-      -webkit-text-stroke: .5px #27302d;
-    }
-    .currency-icon { font-size: 19px; -webkit-text-stroke: 0; filter: drop-shadow(1px 2px 1px rgba(0,0,0,.4)); }
-    .coin-icon { color: #ffc629; }
-    .gem-icon { color: #66e4ff; }
-    .score-row { padding-left: 6px; color: #fff; font-size: 10px; font-weight: 900; letter-spacing: .04em; text-shadow: 1px 1px 2px #203832, -1px -1px 2px #203832; }
-    .map-wrap {
-      position: absolute;
-      top: 0;
-      left: 50%;
-      width: min(158px, 35vw);
-      margin-top: 0;
-      transform: translateX(-50%);
-      pointer-events: none;
-    }
-    .map-card {
-      padding: 4px 6px 6px;
-      border: 1px solid rgba(38,60,56,.48);
-      border-radius: 3px;
-      color: #fff;
-      background: rgba(41,74,73,.42);
-      text-shadow: 1px 1px 2px #203832;
-    }
-    .map-heading { display: flex; justify-content: space-between; gap: 4px; font-size: 7px; font-weight: 900; letter-spacing: .04em; }
-    .map-route { position: relative; display: flex; gap: 2px; margin-top: 5px; }
-    .map-segment { height: 4px; flex: 1; overflow: hidden; border: 1px solid rgba(32,55,47,.65); background: rgba(229,234,201,.6); }
-    .map-segment-fill { width: 0; height: 100%; background: #9bec19; }
-    .map-marker {
-      position: absolute;
-      top: 50%;
-      left: 0;
-      width: 8px;
-      height: 8px;
-      border: 1px solid #fff;
-      border-radius: 50%;
-      background: #e44f35;
-      box-shadow: 0 1px 3px rgba(0,0,0,.5);
-      transform: translate(-50%,-50%);
-      transition: left .15s linear;
-    }
-    .side-tools {
-      display: flex;
-      gap: 5px;
-      pointer-events: auto;
-    }
-    .icon-button {
-      display: grid;
-      width: 31px;
-      height: 31px;
-      place-items: center;
-      border: 2px solid #555d5b;
-      border-radius: 3px;
-      color: #fff;
-      background: linear-gradient(#f5f2e7,#b9c3be);
-      font-size: 18px;
-      font-weight: 950;
-      text-shadow: 1px 1px #69716e;
-      cursor: pointer;
-    }
-    .icon-button:hover { filter: brightness(1.08); }
-    .panel {
-      position: absolute;
-      z-index: 4;
-      top: 50%;
-      left: 50%;
-      width: min(440px, calc(100% - 36px));
-      padding: 32px;
-      border: 1px solid rgba(255,255,255,.16);
-      border-radius: 26px;
-      background: rgba(15,27,40,.88);
-      box-shadow: 0 28px 90px rgba(15,31,42,.35);
-      text-align: center;
-      transform: translate(-50%,-50%);
-      backdrop-filter: blur(20px);
-    }
-    .panel.garage-panel {
-      display: flex;
-      width: min(760px, calc(100% - 32px));
-      max-height: min(780px, calc(100% - 36px));
-      flex-direction: column;
-      overflow-y: auto;
-      padding: 24px;
-      text-align: left;
-    }
-    .garage-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-    .garage-title { margin: 5px 0 0; font-size: 30px; letter-spacing: -.05em; }
-    .garage-wallet { padding: 9px 12px; border: 1px solid rgba(255,255,255,.13); border-radius: 12px; color: var(--lime); background: rgba(255,255,255,.06); font-size: 12px; font-weight: 900; white-space: nowrap; }
-    .garage-preview { display: flex; min-height: 100px; align-items: center; justify-content: center; gap: 16px; margin: 16px 0 12px; border: 1px solid rgba(255,255,255,.1); border-radius: 17px; background: linear-gradient(120deg,rgba(215,243,106,.09),rgba(255,255,255,.025)); }
-    .bike-preview-svg { width: 120px; height: 74px; }
-    .garage-current-name { font-size: 15px; font-weight: 900; }
-    .garage-current-info { margin-top: 5px; color: #a7b3bd; font-size: 10px; }
-    .vehicle-grid { display: grid; min-height: 110px; max-height: min(270px,32vh); flex: 1 1 auto; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px; overflow-y: auto; padding: 2px 3px 4px 0; overscroll-behavior: contain; }
-    .vehicle-card { min-width: 0; padding: 10px 9px; border: 1px solid rgba(255,255,255,.1); border-radius: 13px; background: rgba(255,255,255,.045); }
-    .vehicle-card.selected { border-color: var(--lime); background: rgba(215,243,106,.1); }
-    .vehicle-name { overflow: hidden; margin: 7px 0; font-size: 10px; font-weight: 850; text-overflow: ellipsis; white-space: nowrap; }
-    .vehicle-swatch { display: flex; height: 30px; align-items: center; }
-    .vehicle-swatch svg { width: 75px; height: 30px; overflow: visible; }
-    .vehicle-action { width: 100%; margin-top: 2px; padding: 7px 4px; border: 0; border-radius: 8px; color: #e8eee8; background: rgba(255,255,255,.1); cursor: pointer; font-size: 9px; font-weight: 850; }
-    .vehicle-action:hover { background: rgba(255,255,255,.19); }
-    .vehicle-card.selected .vehicle-action { color: #172431; background: var(--lime); }
-    .garage-footer { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
-    .garage-footer .primary { flex: 1; margin: 0; }
-    .upgrade-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 7px; margin-top: 10px; }
-    .upgrade-card { padding: 9px; border: 1px solid rgba(255,255,255,.1); border-radius: 11px; background: rgba(255,255,255,.045); }
-    .upgrade-card strong { display: block; font-size: 10px; }
-    .upgrade-card span { display: block; min-height: 23px; margin-top: 4px; color: var(--muted); font-size: 9px; }
-    .upgrade-card button { width: 100%; padding: 6px 3px; border: 0; border-radius: 7px; color: #172431; background: var(--lime); cursor: pointer; font-size: 9px; font-weight: 900; }
-    .upgrade-card button:disabled { color: #a7b3bd; background: rgba(255,255,255,.1); cursor: default; }
-    .secondary { padding: 13px 15px; border: 1px solid rgba(255,255,255,.18); border-radius: 12px; color: #e8eee8; background: rgba(255,255,255,.06); cursor: pointer; font-size: 10px; font-weight: 900; letter-spacing: .08em; }
-    .eyebrow { color: var(--lime); font-size: 10px; font-weight: 900; letter-spacing: .22em; }
-    h1 { margin: 12px 0 9px; font-size: clamp(32px, 7vw, 48px); line-height: .98; letter-spacing: -.06em; }
-    .description { max-width: 330px; margin: 0 auto; color: #b6c1c6; font-size: 13px; line-height: 1.65; }
-    .primary {
-      width: 100%;
-      margin-top: 23px;
-      padding: 15px 20px;
-      border: 0;
-      border-radius: 14px;
-      color: #172431;
-      background: var(--lime);
-      cursor: pointer;
-      font-size: 12px;
-      font-weight: 950;
-      letter-spacing: .13em;
-      transition: transform .18s, filter .18s;
-    }
-    .primary:hover { filter: brightness(1.06); transform: translateY(-2px); }
-    .primary:disabled { opacity: .5; cursor: not-allowed; filter: saturate(.4); transform: none; }
-    .help { margin-top: 15px; color: #9eabb4; font-size: 10px; line-height: 1.7; }
-    .key {
-      display: inline-block;
-      min-width: 23px;
-      padding: 2px 5px;
-      border: 1px solid rgba(255,255,255,.2);
-      border-radius: 5px;
-      color: #f0f3e8;
-      background: rgba(255,255,255,.08);
-      font-weight: 800;
-    }
-    .hidden { display: none; }
-    .bottom-hint {
-      position: absolute;
-      z-index: 2;
-      bottom: max(28px, env(safe-area-inset-bottom));
-      left: 50%;
-      color: rgba(20,39,48,.76);
-      font-size: 10px;
-      font-weight: 850;
-      letter-spacing: .17em;
-      text-align: center;
-      transform: translateX(-50%);
-      pointer-events: none;
-    }
-    .bottom-hint { display: none; }
-    .touch-controls {
-      position: absolute;
-      z-index: 3;
-      right: 14px;
-      bottom: max(12px, env(safe-area-inset-bottom));
-      left: 14px;
-      display: grid;
-      grid-template-columns: minmax(58px,1fr) auto minmax(58px,1fr);
-      align-items: end;
-      justify-content: space-between;
-      pointer-events: none;
-    }
-    .touch-group { display: contents; }
-    .touch-btn {
-      width: clamp(58px, 15vw, 78px);
-      height: clamp(67px, 20vw, 83px);
-      border: 2px solid #5b625d;
-      border-radius: 5px;
-      color: #252d2b;
-      background-color: #bcbcae;
-      background-image:
-        radial-gradient(circle at 14px 13px,#50483a 0 6px,#ece9dc 7px 8px,transparent 9px),
-        radial-gradient(circle at 38px 13px,#50483a 0 6px,#ece9dc 7px 8px,transparent 9px),
-        radial-gradient(circle at 62px 13px,#50483a 0 6px,#ece9dc 7px 8px,transparent 9px),
-        radial-gradient(circle at 14px 36px,#50483a 0 6px,#ece9dc 7px 8px,transparent 9px),
-        radial-gradient(circle at 38px 36px,#50483a 0 6px,#ece9dc 7px 8px,transparent 9px),
-        radial-gradient(circle at 62px 36px,#50483a 0 6px,#ece9dc 7px 8px,transparent 9px),
-        linear-gradient(135deg,#efeee5,#9b9b8e);
-      box-shadow: 0 3px 0 #6e6c60, 0 5px 8px rgba(30,40,31,.32);
-      font-size: 10px;
-      font-weight: 900;
-      letter-spacing: .08em;
-      touch-action: none;
-      user-select: none;
-      -webkit-user-select: none;
-      pointer-events: auto;
-      text-shadow: 0 1px rgba(255,255,255,.6);
-    }
-    .touch-btn:active { filter: brightness(.9); transform: translateY(2px); box-shadow: 0 1px 0 #6e6c60; }
-    .gauge-group { display: flex; align-items: center; gap: clamp(5px,2vw,14px); }
-    .gauge {
-      position: relative;
-      display: grid;
-      width: clamp(65px, 21vw, 88px);
-      aspect-ratio: 1;
-      place-items: center;
-      padding: 5px;
-      border: 2px solid #303a39;
-      border-radius: 50%;
-      color: #fff;
-      background: conic-gradient(from 220deg,#f3f0e2 0 48%,#d1d1c3 48% 74%,#b84840 74% 84%,transparent 84% 100%);
-      box-shadow: 0 2px 0 #fff,0 4px 8px rgba(25,39,39,.32);
-      cursor: pointer;
-      pointer-events: auto;
-      touch-action: none;
-    }
-    .gauge-face {
-      position: relative;
-      display: grid;
-      width: 100%;
-      height: 100%;
-      place-items: center;
-      overflow: hidden;
-      border: 2px solid #414a47;
-      border-radius: 50%;
-      background: repeating-conic-gradient(from 220deg at 50% 53%,#222c2d 0 1deg,transparent 1.5deg 16deg),linear-gradient(#fffdf1 55%,#c8d0c7);
-    }
-    .gauge-face::after { position: absolute; top: 49%; left: 50%; width: 4px; height: 4px; border-radius: 50%; background: #303637; content: ""; transform: translate(-50%,-50%); }
-    .gauge-needle { position: absolute; z-index: 1; bottom: 47%; left: calc(50% - 1px); width: 2px; height: 35%; border-radius: 2px; background: #283231; transform: rotate(-120deg); transform-origin: 50% 100%; transition: transform .12s; }
-    .gauge-label { position: absolute; bottom: 7px; color: #202928; font-size: 8px; font-weight: 950; text-shadow: 0 1px #fff; }
-    .boost-button { position: absolute; z-index: 2; top: -9px; right: -9px; width: 28px; height: 28px; padding: 0; border: 2px solid #313d40; border-radius: 50%; color: #fff; background: radial-gradient(circle at 34% 28%,#b5f9ff,#208dc4 64%,#174b7e); box-shadow: 0 2px 3px rgba(0,0,0,.35); font-size: 14px; cursor: pointer; touch-action: none; }
-    .boost-button:active { filter: brightness(1.25); }
-    .fuel-warning { background: linear-gradient(90deg,#ff633b,#ff633b) !important; }
-    @media (pointer: coarse), (max-width: 700px) {
-      .topbar { top: max(7px, env(safe-area-inset-top)); right: 9px; left: 9px; }
-      .game-hud { width: 112px; gap: 3px; }
-      .fuel-card { gap: 4px; padding: 1px 4px; }
-      .fuel-track { height: 12px; }
-      .currency-pill { min-width: 59px; gap: 3px; font-size: 14px; }
-      .currency-icon { font-size: 16px; }
-      .score-row { font-size: 8px; }
-      .map-wrap { width: min(128px,36vw); }
-      .side-tools { gap: 4px; }
-      .icon-button { width: 28px; height: 28px; }
-      .panel { padding: 28px 24px; }
-      .panel.garage-panel { padding: 17px; }
-      .vehicle-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
-      .garage-title { font-size: 25px; }
-      .garage-preview { min-height: 83px; margin: 11px 0 8px; }
-      .bike-preview-svg { width: 96px; height: 60px; }
-      .upgrade-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
-    }
-    @media (orientation: portrait) and (pointer: coarse) {
-      .game::after { position: absolute; z-index: 8; right: 12px; bottom: 12px; padding: 7px 10px; border: 1px solid rgba(255,255,255,.2); border-radius: 9px; color: #fff; background: rgba(15,27,40,.72); content: "Landscape recommended"; font-size: 10px; pointer-events: none; }
-    }
-    @media (max-width: 400px) {
-      .map-wrap { top: 78px; width: min(158px, 55vw); }
-    }
-    @media (max-height: 600px) {
-      .panel { padding: 22px 26px; }
-      h1 { margin: 8px 0 6px; font-size: 36px; }
-      .primary { margin-top: 14px; padding: 12px; }
-      .help { margin-top: 9px; }
-      .touch-controls { bottom: max(8px, env(safe-area-inset-bottom)); }
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Saffron Restaurant | Fine Dining</title>
+<meta name="description" content="Experience delicious food, premium dining and fresh flavors at Saffron Restaurant.">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg: #11120f;
+  --surface: #1b1d18;
+  --gold: #d9a84e;
+  --white: #f8f5ed;
+  --muted: #aaa99e;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+html { scroll-behavior:smooth; }
+
+body {
+  background:var(--bg);
+  color:var(--white);
+  font-family:'DM Sans',sans-serif;
+}
+
+a { text-decoration:none; color:inherit; }
+
+button { font:inherit; cursor:pointer; }
+
+header {
+  position:sticky;
+  top:0;
+  z-index:100;
+  background:rgba(17,18,15,.96);
+  border-bottom:1px solid #ffffff15;
+}
+
+.navbar {
+  max-width:1200px;
+  margin:auto;
+  padding:18px 5%;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+.logo {
+  font-family:'Playfair Display',serif;
+  font-size:27px;
+  color:var(--gold);
+}
+
+.logo span { color:white; }
+
+.nav-links {
+  display:flex;
+  gap:30px;
+  align-items:center;
+}
+
+.nav-links a {
+  font-size:14px;
+  color:#ddd;
+  transition:.3s;
+}
+
+.nav-links a:hover { color:var(--gold); }
+
+.gold-btn {
+  background:var(--gold);
+  color:#17140e;
+  padding:13px 23px;
+  border-radius:4px;
+  font-weight:700;
+  border:0;
+  display:inline-block;
+  transition:.3s;
+}
+
+.gold-btn:hover {
+  background:#f0c879;
+  transform:translateY(-2px);
+}
+
+.menu-toggle {
+  display:none;
+  background:none;
+  border:0;
+  color:white;
+  font-size:27px;
+}
+
+/* HERO */
+
+.hero {
+  min-height:650px;
+  display:flex;
+  align-items:center;
+  background:
+  linear-gradient(90deg,rgba(0,0,0,.88),rgba(0,0,0,.2)),
+  url('https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1800&q=85')
+  center/cover;
+}
+
+.hero-content {
+  max-width:1200px;
+  width:100%;
+  margin:auto;
+  padding:70px 5%;
+}
+
+.tag {
+  color:var(--gold);
+  letter-spacing:4px;
+  font-size:12px;
+  font-weight:700;
+}
+
+.hero h1 {
+  font-family:'Playfair Display',serif;
+  font-size:clamp(45px,7vw,82px);
+  max-width:700px;
+  line-height:1.1;
+  margin:22px 0;
+}
+
+.hero p {
+  color:#ddd;
+  max-width:480px;
+  line-height:1.8;
+  margin-bottom:30px;
+}
+
+.section {
+  max-width:1200px;
+  margin:auto;
+  padding:90px 5%;
+}
+
+.section-heading {
+  text-align:center;
+  margin-bottom:45px;
+}
+
+.section-heading h2 {
+  font-family:'Playfair Display',serif;
+  font-size:clamp(32px,5vw,48px);
+  margin:13px 0;
+}
+
+.section-heading p { color:var(--muted); }
+
+.gold { color:var(--gold); }
+
+/* ABOUT */
+
+.about-grid {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:50px;
+  align-items:center;
+}
+
+.about-img {
+  width:100%;
+  height:430px;
+  object-fit:cover;
+  border-radius:5px;
+}
+
+.about-text h2 {
+  font-family:'Playfair Display',serif;
+  font-size:43px;
+  margin:18px 0;
+}
+
+.about-text p {
+  color:var(--muted);
+  line-height:1.9;
+  margin-bottom:25px;
+}
+
+/* MENU */
+
+.menu-section { background:#181a15; }
+
+.menu-grid {
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:25px;
+}
+
+.food-card {
+  background:#22241e;
+  border:1px solid #ffffff10;
+  border-radius:7px;
+  overflow:hidden;
+  transition:.3s;
+}
+
+.food-card:hover { transform:translateY(-7px); }
+
+.food-card img {
+  width:100%;
+  height:220px;
+  object-fit:cover;
+}
+
+.food-info { padding:20px; }
+
+.food-info h3 {
+  font-family:'Playfair Display',serif;
+  font-size:22px;
+  margin-bottom:10px;
+}
+
+.food-info p {
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.6;
+  min-height:42px;
+}
+
+.food-bottom {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-top:18px;
+}
+
+.price {
+  color:var(--gold);
+  font-size:20px;
+  font-weight:700;
+}
+
+.order-btn {
+  background:transparent;
+  color:var(--gold);
+  border:1px solid var(--gold);
+  padding:9px 14px;
+  border-radius:3px;
+}
+
+.order-btn:hover {
+  background:var(--gold);
+  color:#111;
+}
+
+/* FEATURES */
+
+.features {
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:25px;
+  text-align:center;
+}
+
+.feature {
+  padding:30px 20px;
+  background:var(--surface);
+  border-radius:5px;
+}
+
+.feature .symbol {
+  font-size:35px;
+  margin-bottom:15px;
+}
+
+.feature h3 {
+  font-family:'Playfair Display',serif;
+  margin-bottom:12px;
+}
+
+.feature p {
+  color:var(--muted);
+  line-height:1.7;
+  font-size:14px;
+}
+
+/* GALLERY */
+
+.gallery {
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:15px;
+}
+
+.gallery img {
+  width:100%;
+  height:240px;
+  object-fit:cover;
+  border-radius:5px;
+  transition:.3s;
+}
+
+.gallery img:hover { opacity:.75; }
+
+/* RESERVATION */
+
+.reservation {
+  background:
+  linear-gradient(#11120fe8,#11120fe8),
+  url('https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1600&q=80')
+  center/cover;
+}
+
+.booking-box {
+  max-width:700px;
+  margin:auto;
+  padding:35px;
+  background:#20221ceF;
+  border:1px solid #ffffff20;
+  border-radius:7px;
+}
+
+.booking-box input,
+.booking-box select,
+.booking-box textarea {
+  width:100%;
+  padding:15px;
+  margin-bottom:15px;
+  background:#11120f;
+  color:white;
+  border:1px solid #ffffff25;
+  border-radius:4px;
+  font:inherit;
+}
+
+.form-grid {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+
+.booking-box button { width:100%; }
+
+.form-message {
+  color:var(--gold);
+  margin-top:15px;
+  text-align:center;
+  font-size:14px;
+}
+
+/* FOOTER */
+
+footer {
+  background:#090a08;
+  padding:55px 5% 20px;
+}
+
+.footer-grid {
+  max-width:1100px;
+  margin:auto;
+  display:grid;
+  grid-template-columns:2fr 1fr 1fr;
+  gap:40px;
+}
+
+footer h3 {
+  font-family:'Playfair Display',serif;
+  color:var(--gold);
+  margin-bottom:18px;
+}
+
+footer p, footer a {
+  color:var(--muted);
+  font-size:14px;
+  line-height:2;
+  display:block;
+}
+
+.copyright {
+  text-align:center;
+  border-top:1px solid #ffffff15;
+  margin-top:40px;
+  padding-top:20px;
+  color:var(--muted);
+  font-size:13px;
+}
+
+/* WHATSAPP */
+
+.whatsapp {
+  position:fixed;
+  right:22px;
+  bottom:22px;
+  z-index:99;
+  background:#25d366;
+  color:white;
+  padding:15px 19px;
+  border-radius:50px;
+  font-weight:700;
+  box-shadow:0 5px 20px #0006;
+}
+
+@media(max-width:800px) {
+  .menu-toggle { display:block; }
+
+  .nav-links {
+    display:none;
+    position:absolute;
+    top:68px;
+    left:0;
+    width:100%;
+    background:#171813;
+    padding:25px;
+    flex-direction:column;
+    gap:22px;
+  }
+
+  .nav-links.active { display:flex; }
+
+  .navbar > .gold-btn { display:none; }
+
+  .hero { min-height:570px; }
+
+  .about-grid { grid-template-columns:1fr; }
+
+  .about-img { height:300px; }
+
+  .menu-grid { grid-template-columns:repeat(2,1fr); }
+
+  .features { grid-template-columns:1fr; }
+
+  .footer-grid { grid-template-columns:1fr 1fr; }
+}
+
+@media(max-width:520px) {
+  .menu-grid { grid-template-columns:1fr; }
+
+  .gallery { grid-template-columns:1fr 1fr; }
+
+  .gallery img { height:150px; }
+
+  .form-grid { grid-template-columns:1fr; }
+
+  .booking-box { padding:20px; }
+
+  .footer-grid { grid-template-columns:1fr; }
+
+  .hero h1 { font-size:48px; }
+}
+</style>
 </head>
+
 <body>
-  <main class="game" aria-label="Ridge Runner hill bike game">
-    <canvas id="gameCanvas" aria-label="Bike ride scene"></canvas>
-    <header class="topbar">
-      <div class="game-hud">
-        <div class="fuel-card"><div class="fuel-symbol" aria-hidden="true">⛽</div><div class="fuel-copy"><div class="fuel-title">FUEL</div><div class="fuel-track"><div class="fuel-fill" id="fuelFill"></div></div></div></div>
-        <div class="currency-row">
-          <div class="currency-pill" aria-label="Coins"><span class="currency-icon coin-icon">●</span><span id="coins">0</span></div>
-          <div class="currency-pill" aria-label="Gems"><span class="currency-icon gem-icon">◆</span><span id="gems">0</span></div>
-        </div>
-        <div class="score-row"><span id="timer">00:00</span> · <span id="distance">0</span> m · <span id="points">0</span> pts</div>
-        <span id="best" hidden>0</span>
-      </div>
-      <div class="map-wrap" aria-label="Level map">
-        <div class="map-card">
-          <div class="map-heading"><span id="levelName">GREEN HILLS</span><span id="levelLabel">LEVEL 1 / 5</span></div>
-          <div class="map-route" id="mapRoute">
-            <div class="map-segment"><div class="map-segment-fill"></div></div>
-            <div class="map-segment"><div class="map-segment-fill"></div></div>
-            <div class="map-segment"><div class="map-segment-fill"></div></div>
-            <div class="map-segment"><div class="map-segment-fill"></div></div>
-            <div class="map-segment"><div class="map-segment-fill"></div></div>
-            <div class="map-marker" id="mapMarker"></div>
+
+<header>
+  <nav class="navbar">
+    <a href="#" class="logo">SAFFRON<span>.</span></a>
+
+    <button class="menu-toggle" id="menuToggle"
+    aria-label="Toggle navigation">☰</button>
+
+    <div class="nav-links" id="navLinks">
+      <a href="#home">Home</a>
+      <a href="#about">About</a>
+      <a href="#menu">Menu</a>
+      <a href="#gallery">Gallery</a>
+      <a href="#reservation">Reservation</a>
+    </div>
+
+    <a href="#reservation" class="gold-btn">Book A Table</a>
+  </nav>
+</header>
+
+<!-- HERO -->
+
+<section class="hero" id="home">
+  <div class="hero-content">
+    <span class="tag">WELCOME TO SAFFRON</span>
+
+    <h1>Experience The Art Of <span class="gold">Fine Dining</span></h1>
+
+    <p>
+      Discover unforgettable flavors, fresh ingredients
+      and a beautiful dining experience made just for you.
+    </p>
+
+    <a href="#menu" class="gold-btn">Explore Our Menu →</a>
+  </div>
+</section>
+
+<!-- ABOUT -->
+
+<section class="section" id="about">
+  <div class="about-grid">
+    <img class="about-img"
+    src="https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=900&q=85"
+    alt="Restaurant dining experience">
+
+    <div class="about-text">
+      <span class="tag">OUR STORY</span>
+
+      <h2>A Place Where <span class="gold">Taste</span> Meets Passion</h2>
+
+      <p>
+        At Saffron, we believe great food brings people together.
+        Our chefs combine fresh ingredients, creativity and
+        traditional flavors to create memorable meals.
+      </p>
+
+      <p>
+        From casual dinners to special celebrations,
+        every visit is designed to feel special.
+      </p>
+
+      <a href="#reservation" class="gold-btn">Discover More</a>
+    </div>
+  </div>
+</section>
+
+<!-- MENU -->
+
+<section class="menu-section" id="menu">
+  <div class="section">
+    <div class="section-heading">
+      <span class="tag">OUR SPECIALTIES</span>
+      <h2>Explore Our <span class="gold">Menu</span></h2>
+      <p>Fresh ingredients. Beautiful flavors. Made with love.</p>
+    </div>
+
+    <div class="menu-grid">
+
+      <div class="food-card">
+        <img src="https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=700&q=80" alt="Classic burger">
+        <div class="food-info">
+          <h3>Classic Burger</h3>
+          <p>Juicy grilled burger with fresh vegetables and special sauce.</p>
+          <div class="food-bottom">
+            <span class="price">$12</span>
+            <button class="order-btn" onclick="orderFood('Classic Burger')">Order Now</button>
           </div>
         </div>
       </div>
-      <div class="side-tools">
-        <button class="icon-button" id="garageHudButton" aria-label="Change bike" title="Change bike">🏍️</button>
-        <button class="icon-button" id="soundButton" aria-label="Toggle sound" title="Toggle sound">♫</button>
-        <button class="icon-button" id="fullscreenButton" aria-label="Toggle fullscreen" title="Toggle fullscreen">⛶</button>
-        <button class="icon-button" id="pauseButton" aria-label="Pause game" title="Pause game">Ⅱ</button>
-      </div>
-    </header>
-    <section class="panel" id="introPanel">
-      <div class="eyebrow">YOUR NEXT GREAT ESCAPE</div>
-      <h1>Find your<br>flow.</h1>
-      <p class="description">Ride wild hills, catch a little air, and see how far your bike will take you.</p>
-      <button class="primary" id="startButton">START YOUR DRIVE&nbsp; ↗</button>
-      <div class="help"><span class="key">→</span> or <span class="key">D</span> accelerate &nbsp; <span class="key">←</span> or <span class="key">A</span> brake<br><span class="key">↑</span><span class="key">↓</span> balance · <span class="key">SHIFT</span> boost · <span class="key">SPACE</span> pause</div>
-    </section>
-    <div class="bottom-hint" id="bottomHint">A LITTLE THROTTLE GOES A LONG WAY</div>
-    <div class="touch-controls" aria-label="Driving controls">
-      <button class="touch-btn" data-control="brake" aria-label="Brake">BRAKE</button>
-      <div class="gauge-group">
-        <div class="gauge" aria-label="Engine revolutions per minute">
-          <div class="gauge-face"><div class="gauge-needle" id="rpmNeedle"></div><span class="gauge-label">RPM</span></div>
-        </div>
-        <div class="gauge" data-control="boost" aria-label="Hold for engine boost">
-          <div class="gauge-face"><div class="gauge-needle" id="boostNeedle"></div><span class="gauge-label">BOOST</span></div>
-          <button class="boost-button" aria-label="Activate boost">ϟ</button>
+
+      <div class="food-card">
+        <img src="https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=700&q=80" alt="Italian pizza">
+        <div class="food-info">
+          <h3>Italian Pizza</h3>
+          <p>Delicious cheese pizza with fresh toppings and herbs.</p>
+          <div class="food-bottom">
+            <span class="price">$15</span>
+            <button class="order-btn" onclick="orderFood('Italian Pizza')">Order Now</button>
+          </div>
         </div>
       </div>
-      <button class="touch-btn" data-control="throttle" aria-label="Accelerate">GAS</button>
+
+      <div class="food-card">
+        <img src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=700&q=80" alt="Fresh salad">
+        <div class="food-info">
+          <h3>Fresh Salad</h3>
+          <p>Healthy seasonal vegetables with our signature dressing.</p>
+          <div class="food-bottom">
+            <span class="price">$9</span>
+            <button class="order-btn" onclick="orderFood('Fresh Salad')">Order Now</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="food-card">
+        <img src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=700&q=80" alt="Grilled chicken">
+        <div class="food-info">
+          <h3>Grilled Chicken</h3>
+          <p>Perfectly grilled chicken with aromatic spices.</p>
+          <div class="food-bottom">
+            <span class="price">$18</span>
+            <button class="order-btn" onclick="orderFood('Grilled Chicken')">Order Now</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="food-card">
+        <img src="https://images.unsplash.com/photo-1551024506-0bccd828d307?auto=format&fit=crop&w=700&q=80" alt="Chocolate dessert">
+        <div class="food-info">
+          <h3>Chocolate Dessert</h3>
+          <p>Rich chocolate dessert for a sweet ending.</p>
+          <div class="food-bottom">
+            <span class="price">$8</span>
+            <button class="order-btn" onclick="orderFood('Chocolate Dessert')">Order Now</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="food-card">
+        <img src="https://images.unsplash.com/photo-1513558161293-cdaf765edfd4?auto=format&fit=crop&w=700&q=80" alt="Fresh drink">
+        <div class="food-info">
+          <h3>Fresh Drink</h3>
+          <p>A refreshing drink prepared with fresh ingredients.</p>
+          <div class="food-bottom">
+            <span class="price">$6</span>
+            <button class="order-btn" onclick="orderFood('Fresh Drink')">Order Now</button>
+          </div>
+        </div>
+      </div>
+
     </div>
-  </main>
-  <script>
-    (() => {
-      "use strict";
-      const canvas = document.getElementById("gameCanvas");
-      const ctx = canvas.getContext("2d");
-      const ui = {
-        distance: document.getElementById("distance"),
-        points: document.getElementById("points"),
-        coins: document.getElementById("coins"),
-        gems: document.getElementById("gems"),
-        timer: document.getElementById("timer"),
-        best: document.getElementById("best"),
-        fuel: document.getElementById("fuelFill"),
-        rpmNeedle: document.getElementById("rpmNeedle"),
-        boostNeedle: document.getElementById("boostNeedle"),
-        panel: document.getElementById("introPanel"),
-        button: document.getElementById("startButton"),
-        pause: document.getElementById("pauseButton"),
-        garageHud: document.getElementById("garageHudButton"),
-        sound: document.getElementById("soundButton"),
-        fullscreen: document.getElementById("fullscreenButton"),
-        hint: document.getElementById("bottomHint"),
-        levelName: document.getElementById("levelName"),
-        levelLabel: document.getElementById("levelLabel"),
-        mapRoute: document.getElementById("mapRoute"),
-        mapMarker: document.getElementById("mapMarker")
-      };
-      const keys = { throttle: false, brake: false, tiltLeft: false, tiltRight: false, boost: false };
-      const colors = { ink: "#172b35", grass: "#8ebd54", dirt: "#966844", lime: "#d7f36a" };
-      let width = 0, height = 0, dpr = 1, lastTime = 0, animationId = 0;
-      const LEVEL_LENGTH = 500, TOTAL_LEVELS = 5;
-      const levelNames = ["GREEN HILLS", "DESERT", "SNOW MOUNTAINS", "FOREST", "VOLCANO"];
-      const biomes = [
-        { sky: ["#71cce8", "#d8f1db"], far: "#a9d8bf", near: "#78b18d", dirt: ["#87613e", "#553c32"], grass: "#77ae4b", highlight: "#c5e978", accent: "#fff0bc" },
-        { sky: ["#f5a45e", "#ffe1a0"], far: "#dca56e", near: "#bc7953", dirt: ["#ae7044", "#654337"], grass: "#c69b58", highlight: "#efd28a", accent: "#fff0bc" },
-        { sky: ["#74b9df", "#e4f2f4"], far: "#bad6e1", near: "#87aebc", dirt: ["#8598a0", "#4d606c"], grass: "#d9e8e9", highlight: "#ffffff", accent: "#fff8d9" },
-        { sky: ["#69b8a4", "#d2e8b3"], far: "#7da88d", near: "#517c67", dirt: ["#685640", "#3e4235"], grass: "#56894b", highlight: "#a9cf67", accent: "#ffe6a1" },
-        { sky: ["#3d4d69", "#e5895d"], far: "#6d5160", near: "#493c4b", dirt: ["#563d3b", "#282c35"], grass: "#a44d38", highlight: "#ed8650", accent: "#ffb05e" }
-      ];
-      const vehicles = [
-        ["Trail Scout", "#de7652", "#f29c65", 0], ["Mint Runner", "#39b995", "#78e1be", 20],
-        ["Sun Chaser", "#edbc45", "#ffe185", 45], ["Blue Comet", "#568fe0", "#8dbbff", 75],
-        ["Berry Dash", "#c26491", "#ef9abb", 105], ["Canyon Fox", "#d34c3d", "#fa8466", 140],
-        ["Lime Hopper", "#83bb4b", "#b9e877", 180], ["Night Rider", "#565d85", "#969cc8", 220],
-        ["Cloud Cruiser", "#d4d8d1", "#ffffff", 265], ["Purple Peak", "#8c68cc", "#c4a4ff", 315],
-        ["Copper Climber", "#b97845", "#e7ae74", 370], ["Arctic Arrow", "#56b9cc", "#9eecf0", 430],
-        ["Wildflower", "#dc729e", "#ffaac5", 495], ["Forest Hopper", "#527f4f", "#93ba70", 565],
-        ["Turbo Tangerine", "#ed8735", "#ffc170", 640], ["Glacier Glide", "#668bb0", "#aac9e6", 720],
-        ["Desert Spark", "#c4a44b", "#efda83", 810], ["Rocket Red", "#e04c58", "#ff8c90", 910],
-        ["Starboard", "#497b98", "#88c0d4", 1020], ["Summit Legend", "#93ad43", "#d7f36a", 1150]
-      ].map(([name, body, trim, price], index) => ({
-        id: index, name, body, trim, price, style: index % 4,
-        engine: 1 + (index % 5) * .035, suspension: 1 + (index % 4) * .04,
-        tires: 1 + (index % 3) * .05, tank: 1 + (index % 4) * .035
-      }));
-      function lightenColor(hex, amount = 0.2) {
-        const value = Number.parseInt(hex.slice(1), 16);
-        const channels = [(value >> 16) & 255, (value >> 8) & 255, value & 255];
-        return `#${channels.map(channel => Math.round(channel + (255 - channel) * amount).toString(16).padStart(2, "0")).join("")}`;
-      }
-      let mode = "ready", cameraX = 0, distance = 0, points = 0, coins = 0, gems = 0, fuel = 100, boost = 100, runTime = 0;
-      let soundOn = true, audioContext = null, best = 0, wallet = 0, gemWallet = 0, selectedVehicle = 0, levelIndex = 0, unlockedLevel = 1;
-      let purchasedVehicles = new Set([0]), vehicleUpgrades = {}, collected = new Set(), particles = [], garageReturnHtml = "", wheelRotation = 0;
-      try {
-        const savedBest = Number(localStorage.getItem("ridge-runner-best"));
-        const savedWallet = Number(localStorage.getItem("ridge-runner-coins"));
-        const savedGems = Number(localStorage.getItem("ridge-runner-gems"));
-        best = Number.isFinite(savedBest) ? Math.max(0, Math.floor(savedBest)) : 0;
-        wallet = Number.isFinite(savedWallet) ? Math.max(0, Math.floor(savedWallet)) : 0;
-        gemWallet = Number.isFinite(savedGems) ? Math.max(0, Math.floor(savedGems)) : 0;
-        const savedPurchases = JSON.parse(localStorage.getItem("ridge-runner-cars") || "[0]");
-        if (Array.isArray(savedPurchases)) {
-          purchasedVehicles = new Set(savedPurchases.filter(id => Number.isInteger(id) && id >= 0 && id < vehicles.length));
-          purchasedVehicles.add(0);
-        }
-        const savedUpgrades = JSON.parse(localStorage.getItem("ridge-runner-upgrades") || "{}");
-        if (savedUpgrades && typeof savedUpgrades === "object" && !Array.isArray(savedUpgrades)) {
-          vehicleUpgrades = savedUpgrades;
-          for (const id of Object.keys(vehicleUpgrades)) {
-            for (const type of ["engine", "suspension", "tires", "fuel"]) {
-              const level = Number(vehicleUpgrades[id][type]);
-              vehicleUpgrades[id][type] = Number.isInteger(level) ? Math.max(0, Math.min(5, level)) : 0;
-            }
-          }
-        }
-        const savedVehicle = Number(localStorage.getItem("ridge-runner-selected-car"));
-        if (purchasedVehicles.has(savedVehicle)) selectedVehicle = savedVehicle;
-      } catch { purchasedVehicles = new Set([0]); }
-      try { unlockedLevel = Math.max(1, Math.min(TOTAL_LEVELS, Number(localStorage.getItem("ridge-runner-level")) || 1)); } catch { unlockedLevel = 1; }
-      levelIndex = unlockedLevel - 1;
-      ui.best.textContent = best;
-      ui.coins.textContent = wallet;
-      ui.gems.textContent = gemWallet;
-      const car = { x: 120, y: 0, vx: 0, vy: 0, angle: 0, angularVelocity: 0, grounded: false, rearSuspension: 0, frontSuspension: 0 };
-      function upgradeLevel(id, type) { return vehicleUpgrades[id]?.[type] || 0; }
-      function fuelCapacity() { return Math.round(100 * vehicles[selectedVehicle].tank * (1 + upgradeLevel(selectedVehicle, "fuel") * .22)); }
+  </div>
+</section>
 
-      function resize() {
-        const rect = canvas.getBoundingClientRect();
-        width = rect.width;
-        height = rect.height;
-        dpr = Math.min(window.devicePixelRatio || 1, 2);
-        canvas.width = Math.round(width * dpr);
-        canvas.height = Math.round(height * dpr);
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        if (mode === "ready") car.y = terrainY(car.x) - 40;
-      }
-      function terrainY(x) {
-        const difficulty = levelIndex * 5;
-        const biome = levelIndex;
-        const roughness = [1, 1.16, 1.08, .92, 1.28][biome];
-        const hills = Math.sin(x * .0032 + biome * .8) * (55 + difficulty) +
-          Math.sin(x * .0071 + 1.4 + biome) * (24 + difficulty * .35) +
-          Math.sin(x * .00135 + biome * .4) * 58;
-        const ridge = biome === 4 ? Math.max(0, Math.sin(x * .0019)) * 30 : 0;
-        return height * .63 + hills * roughness + ridge;
-      }
-      function terrainSlope(x) { return Math.atan2(terrainY(x + 5) - terrainY(x - 5), 10); }
-      function updateMap() {
-        const progress = Math.min(1, distance / LEVEL_LENGTH);
-        const totalProgress = (levelIndex + progress) / TOTAL_LEVELS;
-        ui.levelName.textContent = levelNames[levelIndex];
-        ui.levelLabel.textContent = `LEVEL ${levelIndex + 1} / ${TOTAL_LEVELS}`;
-        ui.mapRoute.querySelectorAll(".map-segment-fill").forEach((fill, index) => {
-          fill.style.width = `${Math.max(0, Math.min(1, totalProgress * TOTAL_LEVELS - index)) * 100}%`;
-        });
-        ui.mapMarker.style.left = `${totalProgress * 100}%`;
-      }
-      function saveGarage() {
-        try {
-          localStorage.setItem("ridge-runner-coins", String(wallet));
-          localStorage.setItem("ridge-runner-gems", String(gemWallet));
-          localStorage.setItem("ridge-runner-cars", JSON.stringify([...purchasedVehicles]));
-          localStorage.setItem("ridge-runner-selected-car", String(selectedVehicle));
-          localStorage.setItem("ridge-runner-upgrades", JSON.stringify(vehicleUpgrades));
-        } catch { showGarageNotice("Saving is unavailable in this browser session."); }
-      }
-      function addCoins(amount) {
-        wallet += amount;
-        ui.coins.textContent = wallet;
-        saveGarage();
-      }
-      function addGems(amount) {
-        gemWallet += amount;
-        ui.gems.textContent = gemWallet;
-        saveGarage();
-      }
-      function renderMenu() {
-        ui.panel.classList.remove("garage-panel");
-        ui.panel.innerHTML = `<div class="eyebrow">YOUR NEXT GREAT ESCAPE</div><h1>Find your<br>flow.</h1><p class="description">Climb wild hills, catch a little air, and see how far your wheels will take you.</p><button class="primary" id="startButton" data-action="start">START YOUR DRIVE&nbsp; ↗</button><button class="secondary" id="garageButton" data-action="garage" style="width:100%;margin-top:9px">GARAGE · ${vehicles[selectedVehicle].name} &nbsp; · &nbsp; ${wallet} COINS</button><div class="help"><span class="key">→</span> or <span class="key">D</span> accelerate &nbsp; <span class="key">←</span> or <span class="key">A</span> brake<br><span class="key">↑</span><span class="key">↓</span> balance in the air</div>`;
-      }
-      function showGarageNotice(message) {
-        const notice = document.getElementById("garageNotice");
-        if (notice) notice.textContent = message;
-      }
-      function openGarage() {
-        if (mode === "playing") {
-          for (const key of Object.keys(keys)) keys[key] = false;
-          mode = "paused";
-          ui.panel.classList.remove("garage-panel");
-          ui.panel.innerHTML = '<div class="eyebrow">TAKE A BREATHER</div><h1>Paused.</h1><p class="description">Your ride will be right here when you’re ready.</p><button class="primary" data-action="resume">RESUME DRIVE&nbsp; ↗</button><button class="secondary" data-action="garage" style="width:100%;margin-top:9px">VISIT THE GARAGE</button>';
-        }
-        garageReturnHtml = ui.panel.innerHTML;
-        ui.panel.classList.add("garage-panel");
-        renderGarage();
-        ui.panel.classList.remove("hidden");
-      }
-      function buyUpgrade(type) {
-        const validTypes = ["engine", "suspension", "tires", "fuel"];
-        if (!validTypes.includes(type) || !purchasedVehicles.has(selectedVehicle)) return;
-        const level = upgradeLevel(selectedVehicle, type);
-        if (level >= 5) return;
-        const price = 120 + level * 100;
-        if (wallet < price) {
-          renderGarage(`You need ${price - wallet} more coins for this upgrade.`);
-          return;
-        }
-        wallet -= price;
-        if (!vehicleUpgrades[selectedVehicle]) vehicleUpgrades[selectedVehicle] = {};
-        vehicleUpgrades[selectedVehicle][type] = level + 1;
-        saveGarage();
-        ui.coins.textContent = wallet;
-        renderGarage(`${type[0].toUpperCase()}${type.slice(1)} upgraded to level ${level + 1}.`);
-        updateFuel();
-      }
-      function bikeIcon(body, trim, className = "") {
-        return `<svg class="${className}" viewBox="0 0 140 80" aria-hidden="true">
-          <ellipse cx="70" cy="69" rx="50" ry="5" fill="rgba(0,0,0,.2)"/>
-          <g fill="#202c33" stroke="#d7e1d8" stroke-width="3"><circle cx="35" cy="57" r="15"/><circle cx="105" cy="57" r="15"/></g>
-          <g fill="none" stroke="#879b99" stroke-width="2"><circle cx="35" cy="57" r="9"/><circle cx="105" cy="57" r="9"/></g>
-          <path d="M35 57 57 32 78 57 35 57 48 43 70 43 85 34 105 57 89 29" fill="none" stroke="${trim}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M49 42 Q55 34 68 35 L80 42 70 49 53 48Z" fill="${body}" stroke="rgba(20,35,38,.5)" stroke-width="2"/>
-          <path d="M48 40 37 37 29 38M82 34 92 25 99 25M88 28 93 23" fill="none" stroke="#d9e3da" stroke-width="3" stroke-linecap="round"/>
-          <path d="M57 35 Q59 23 73 22 L81 26 76 34Z" fill="#26353b"/>
-          <path d="M57 22 Q59 10 69 11 Q80 12 78 23 L71 27 60 25Z" fill="${trim}" stroke="#e4eee2" stroke-width="2"/>
-          <circle cx="103" cy="34" r="4" fill="#fff0ad"/>
-        </svg>`;
-      }
-      function renderGarage(notice = "") {
-        const selected = vehicles[selectedVehicle];
-        const vehicleCards = vehicles.map(vehicle => {
-          const owned = purchasedVehicles.has(vehicle.id);
-          const active = selectedVehicle === vehicle.id;
-          const action = active ? "SELECTED" : owned ? "SELECT" : `● ${vehicle.price}`;
-          return `<article class="vehicle-card${active ? " selected" : ""}"><div class="vehicle-swatch">${bikeIcon(lightenColor(vehicle.body), vehicle.trim)}</div><div class="vehicle-name">${vehicle.name}</div><button class="vehicle-action" data-car-id="${vehicle.id}">${action}</button></article>`;
-        }).join("");
-        const bikeArt = bikeIcon(lightenColor(selected.body), selected.trim, "bike-preview-svg");
-        const upgrades = [
-          ["engine", "Engine", "More power on steep climbs"],
-          ["suspension", "Suspension", "Softer landings and control"],
-          ["tires", "Tires", "Grip and stronger braking"],
-          ["fuel", "Fuel tank", "Carry more fuel per run"]
-        ].map(([type, label, description]) => {
-          const level = upgradeLevel(selected.id, type);
-          const price = 120 + level * 100;
-          const maxed = level >= 5;
-          return `<div class="upgrade-card"><strong>${label} · ${level}/5</strong><span>${description}</span><button data-upgrade="${type}" ${maxed || !purchasedVehicles.has(selected.id) ? "disabled" : ""}>${maxed ? "MAXED" : !purchasedVehicles.has(selected.id) ? "UNLOCK BIKE" : `UPGRADE · ${price} ●`}</button></div>`;
-        }).join("");
-        const ready = purchasedVehicles.has(selected.id);
-        ui.panel.innerHTML = `<div class="garage-top"><div><div class="eyebrow">YOUR PERSONAL FLEET</div><h2 class="garage-title">Choose your bike</h2></div><div class="garage-wallet">● <span id="garageBalance">${wallet}</span></div></div><div class="garage-preview">${bikeArt}<div><div class="garage-current-name">${selected.name}</div><div class="garage-current-info">${ready ? "READY TO RACE" : `UNLOCK FOR ${selected.price} COINS`}<br>20 bikes · tune every ride</div></div></div><div class="vehicle-grid">${vehicleCards}</div><div class="upgrade-grid">${upgrades}</div><div class="garage-footer"><button class="secondary" data-action="garage-back">BACK</button><button class="primary" data-action="start" ${ready ? "" : "disabled"}>RIDE THIS BIKE&nbsp; ↗</button></div><div class="help" id="garageNotice" aria-live="polite">${notice || "Collect coins on the trail to unlock bikes and upgrades."}</div>`;
-      }
-      function closeGarage() {
-        ui.panel.classList.remove("garage-panel");
-        if (mode === "ready" || !garageReturnHtml) renderMenu();
-        else ui.panel.innerHTML = garageReturnHtml;
-        garageReturnHtml = "";
-      }
-      function reset() {
-        car.x = 120; car.vx = 0; car.vy = 0; car.angle = 0; car.angularVelocity = 0; car.grounded = false; car.rearSuspension = 0; car.frontSuspension = 0;
-        car.y = terrainY(car.x) - 40;
-        cameraX = 0; distance = 0; points = 0; coins = 0; gems = 0; fuel = fuelCapacity(); boost = 100; runTime = 0; collected = new Set(); particles = []; wheelRotation = 0;
-        ui.distance.textContent = "0"; ui.points.textContent = "0"; ui.timer.textContent = "00:00"; ui.coins.textContent = wallet; ui.gems.textContent = gemWallet; updateFuel(); updateMap(); updateGauges();
-      }
-      function start() {
-        if (mode === "ready" || mode === "over") reset();
-        ensureAudio();
-        mode = "playing";
-        ui.panel.classList.add("hidden");
-        ui.hint.classList.remove("hidden");
-        lastTime = performance.now();
-        if (!animationId) animationId = requestAnimationFrame(loop);
-      }
-      function finish(title, message, completed = false) {
-        mode = "over";
-        best = Math.max(best, distance);
-        try { localStorage.setItem("ridge-runner-best", String(best)); } catch {}
-        ui.best.textContent = best;
-        if (completed) {
-          unlockedLevel = Math.max(unlockedLevel, Math.min(TOTAL_LEVELS, levelIndex + 2));
-          try { localStorage.setItem("ridge-runner-level", String(unlockedLevel)); } catch {}
-        }
-        const finalLevel = levelIndex === TOTAL_LEVELS - 1;
-        const buttonText = completed && !finalLevel ? "NEXT LEVEL" : completed ? "PLAY CAMPAIGN AGAIN" : "RETRY LEVEL";
-        ui.panel.innerHTML = `<div class="eyebrow">${title}</div><h1>${completed && !finalLevel ? `LEVEL ${levelIndex + 1}` : Math.floor(distance) + '<small style="font-size:18px;letter-spacing:0"> m</small>'}</h1><p class="description">${message}<br><strong style="color:#d7f36a">${points} points</strong> · ${coins} coins · ${gems} gems<br>Drive time: ${ui.timer.textContent}</p><button class="primary" id="startButton" data-action="${completed ? "next-level" : "start"}">${buttonText}&nbsp; ↗</button><button class="secondary" data-action="garage" style="width:100%;margin-top:9px">CHOOSE A DIFFERENT CAR</button><div class="help">${completed ? "Level progress saved. Keep climbing!" : "Collect coins for bonus points and reach the level finish."}</div>`;
-        ui.panel.classList.remove("hidden");
-      }
-      function updateFuel() {
-        const capacity = fuelCapacity();
-        const ratio = Math.max(0, Math.min(1, fuel / capacity));
-        ui.fuel.style.width = `${ratio * 100}%`;
-        ui.fuel.classList.toggle("fuel-warning", ratio < .25);
-      }
-      function updateGauges() {
-        const rpm = Math.max(0, Math.min(1, car.vx / 320));
-        ui.rpmNeedle.style.transform = `rotate(${-125 + rpm * 250}deg)`;
-        ui.boostNeedle.style.transform = `rotate(${-125 + boost / 100 * 250}deg)`;
-      }
-      function updateTimer() {
-        const seconds = Math.floor(runTime);
-        ui.timer.textContent = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
-      }
-      function playTone(frequency, duration, type = "sine") {
-        if (!soundOn || !audioContext) return;
-        const oscillator = audioContext.createOscillator();
-        const volume = audioContext.createGain();
-        const now = audioContext.currentTime;
-        oscillator.type = type;
-        oscillator.frequency.setValueAtTime(frequency, now);
-        oscillator.frequency.exponentialRampToValueAtTime(frequency * .72, now + duration);
-        volume.gain.setValueAtTime(.0001, now);
-        volume.gain.exponentialRampToValueAtTime(.09, now + .012);
-        volume.gain.exponentialRampToValueAtTime(.0001, now + duration);
-        oscillator.connect(volume);
-        volume.connect(audioContext.destination);
-        oscillator.start(now);
-        oscillator.stop(now + duration);
-      }
-      function ensureAudio() {
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        if (soundOn && !audioContext && AudioContextClass) audioContext = new AudioContextClass();
-      }
-      function update(dt) {
-        if (mode !== "playing") return;
-        const step = Math.min(dt, .032);
-        const vehicle = vehicles[selectedVehicle];
-        const engine = vehicle.engine * (1 + upgradeLevel(selectedVehicle, "engine") * .12);
-        const suspension = vehicle.suspension * (1 + upgradeLevel(selectedVehicle, "suspension") * .11);
-        const tireGrip = vehicle.tires * (1 + upgradeLevel(selectedVehicle, "tires") * .1);
-        const boosting = keys.boost && boost > 0;
-        if (keys.throttle && fuel > 0) { car.vx += (boosting ? 420 : 210) * engine * step; fuel -= (boosting ? 4.5 : 2.8) * step; }
-        if (keys.brake) car.vx -= (car.grounded ? 300 * tireGrip : 80) * step;
-        car.vx *= Math.max(0, 1 - (car.grounded ? .12 / tireGrip : .035) * step);
-        boost = Math.max(0, Math.min(100, boost + (boosting ? -34 : 9) * step));
-        if (boosting && keys.throttle && runTime % .16 < step) burst(car.x - 26, car.y + 13, "#82e9ff", 2);
-        updateFuel();
-        car.vx = Math.max(-65, Math.min(boosting ? 390 : 300, car.vx));
-        runTime += step;
-        updateTimer();
-        car.x += car.vx * step;
-        const uphill = terrainSlope(car.x);
-        car.vx -= Math.sin(uphill) * 145 * step;
-        car.vy += 770 / suspension * step;
-        car.y += car.vy * step;
+<!-- FEATURES -->
 
-        const rearGround = terrainY(car.x - 36);
-        const frontGround = terrainY(car.x + 36);
-        const wheelRadius = 13;
-        const wheelOffsetY = 24;
-        const supportY = (rearGround + frontGround) / 2 - wheelOffsetY - wheelRadius - 8;
-        car.rearSuspension = Math.max(0, Math.min(12, car.y + wheelOffsetY + wheelRadius - rearGround + 8));
-        car.frontSuspension = Math.max(0, Math.min(12, car.y + wheelOffsetY + wheelRadius - frontGround + 8));
-        car.grounded = car.y >= supportY && car.vy >= 0;
-        if (car.grounded) {
-          const landingSpeed = car.vy;
-          car.y = supportY;
-          car.vy = landingSpeed > 210 ? -Math.min(105, landingSpeed * .13) : 0;
-          const slope = Math.atan2(frontGround - rearGround, 72);
-          car.angularVelocity += (slope - car.angle) * Math.min(1, step * 8 * suspension);
-          car.angularVelocity *= Math.pow(.72, step * 60);
-          car.angle += car.angularVelocity * step * 60;
-        } else {
-          car.angle += car.angularVelocity * step;
-          car.angularVelocity *= .995;
-          if (keys.tiltLeft) car.angularVelocity -= 2.8 * step;
-          if (keys.tiltRight) car.angularVelocity += 2.8 * step;
-        }
-        if (Math.abs(car.angle) > 2.15 && car.grounded) {
-          finish("THAT WAS A WILD RIDE", "Every great driver has to dust off and try again.");
-          return;
-        }
-        distance = Math.max(0, (car.x - 120) / 10);
-        ui.distance.textContent = Math.floor(distance);
-        if (distance >= LEVEL_LENGTH) {
-          distance = LEVEL_LENGTH;
-          points = Math.floor(distance) + coins * 10 + gems * 25;
-          ui.distance.textContent = LEVEL_LENGTH;
-          ui.points.textContent = points;
-          updateMap();
-          finish(levelIndex === TOTAL_LEVELS - 1 ? "CAMPAIGN COMPLETE!" : "LEVEL COMPLETE!", levelIndex === TOTAL_LEVELS - 1 ? "You conquered every trail. You’re the Ridge Runner champion!" : `You reached the finish line at ${levelNames[levelIndex]}. Ready for the next trail?`, true);
-          return;
-        }
-        const segment = Math.floor(car.x / 135);
-        for (let i = segment - 2; i <= segment + 3; i++) {
-          if (i < 1 || collected.has(i)) continue;
-          const itemX = i * 135 + 75;
-          const isFuel = i % 9 === 0;
-          const isGem = !isFuel && i % 7 === 0;
-          const itemY = terrainY(itemX) - (isFuel ? 92 : isGem ? 68 : 56);
-          if (Math.hypot(car.x - itemX, car.y - itemY) < (isFuel ? 82 : isGem ? 52 : 48)) {
-            collected.add(i);
-            if (isFuel) { fuel = Math.min(fuelCapacity(), fuel + 38); updateFuel(); burst(itemX, itemY, "#8de1c2", 12); playTone(520, .24, "triangle"); }
-            else if (isGem) { gems++; addGems(1); burst(itemX, itemY, "#63ddff", 12); playTone(920, .2, "triangle"); }
-            else { coins++; addCoins(1); burst(itemX, itemY, "#ffd45b", 8); playTone(780, .12); }
-          }
-        }
-        points = Math.floor(distance) + coins * 10 + gems * 25;
-        ui.points.textContent = points;
-        updateMap();
-        updateGauges();
-        if (car.x < 0) car.x = 0;
-        wheelRotation += car.vx * step / wheelRadius;
-        cameraX += (Math.max(0, car.x - width * .34) - cameraX) * Math.min(1, step * 5);
-        if (fuel <= 0 && car.vx < 15) finish("OUT OF FUEL", "Next time, look for the green fuel cans along the trail.");
-        particles = particles.filter(p => p.life > 0);
-        for (const p of particles) { p.x += p.vx * step; p.y += p.vy * step; p.vy += 150 * step; p.life -= step; }
-      }
-      function burst(x, y, color, count) {
-        for (let i = 0; i < count; i++) particles.push({ x, y, vx: (Math.random() - .5) * 170, vy: -Math.random() * 150, life: .7, color });
-      }
-      function draw() {
-        ctx.clearRect(0, 0, width, height);
-        const biome = biomes[levelIndex];
-        const sky = ctx.createLinearGradient(0, 0, 0, height);
-        sky.addColorStop(0, biome.sky[0]); sky.addColorStop(1, biome.sky[1]);
-        ctx.fillStyle = sky; ctx.fillRect(0, 0, width, height);
-        drawSun(biome.accent);
-        drawMountainLayer(.12, height * .56, biome.far, 125, 3.2);
-        drawMountainLayer(.23, height * .65, biome.near, 95, 4.7);
-        drawScenery();
-        drawTerrain();
-        drawItems();
-        drawBike();
-        drawParticles();
-      }
-      function drawSun(color) {
-        const x = width * .78, y = height * .23;
-        const glow = ctx.createRadialGradient(x, y, 4, x, y, 72);
-        glow.addColorStop(0, color + "cc"); glow.addColorStop(1, color + "00");
-        ctx.fillStyle = glow; ctx.fillRect(x - 75, y - 75, 150, 150);
-        ctx.beginPath(); ctx.arc(x, y, levelIndex === 4 ? 31 : 25, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill();
-      }
-      function drawMountainLayer(factor, base, color, amp, period) {
-        ctx.beginPath(); ctx.moveTo(0, height);
-        for (let sx = -20; sx <= width + 20; sx += 12) {
-          const wx = sx + cameraX * factor;
-          const sy = base + Math.sin(wx * .0024 + period) * amp + Math.sin(wx * .006 + period) * amp * .27;
-          ctx.lineTo(sx, sy);
-        }
-        ctx.lineTo(width, height); ctx.closePath(); ctx.fillStyle = color; ctx.fill();
-      }
-      function drawTerrain() {
-        const biome = biomes[levelIndex];
-        const startX = Math.floor(cameraX / 10) * 10 - 10;
-        const endX = cameraX + width + 20;
-        ctx.beginPath(); ctx.moveTo(0, height);
-        for (let x = startX; x <= endX; x += 8) ctx.lineTo(x - cameraX, terrainY(x));
-        ctx.lineTo(width, height); ctx.closePath();
-        const earth = ctx.createLinearGradient(0, height * .52, 0, height);
-        earth.addColorStop(0, biome.dirt[0]); earth.addColorStop(1, biome.dirt[1]);
-        ctx.fillStyle = earth; ctx.fill();
-        ctx.beginPath();
-        for (let x = startX; x <= endX; x += 8) {
-          const sx = x - cameraX, sy = terrainY(x);
-          if (x === startX) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
-        }
-        ctx.strokeStyle = biome.grass; ctx.lineWidth = 12; ctx.lineJoin = "round"; ctx.stroke();
-        ctx.beginPath();
-        for (let x = startX; x <= endX; x += 8) {
-          const sx = x - cameraX, sy = terrainY(x) - 5;
-          if (x === startX) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
-        }
-        ctx.strokeStyle = biome.highlight; ctx.lineWidth = 3; ctx.lineJoin = "round"; ctx.stroke();
-        ctx.beginPath();
-        for (let x = startX; x <= endX; x += 8) {
-          const sx = x - cameraX, sy = terrainY(x) + 10;
-          if (x === startX) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
-        }
-        ctx.strokeStyle = "#d1a26d"; ctx.lineWidth = 2; ctx.globalAlpha = .55; ctx.stroke(); ctx.globalAlpha = 1;
-        for (let i = Math.floor(startX / 63); i < endX / 63; i++) {
-          const seed = Math.abs(Math.sin(i * 91.7) * 10000);
-          const x = i * 63 + (seed % 28), sx = x - cameraX, y = terrainY(x) + 32 + (seed % 80);
-          const radius = 4 + seed % 9;
-          ctx.fillStyle = seed % 2 > .5 ? "rgba(54,43,35,.28)" : "rgba(206,168,122,.18)";
-          ctx.beginPath(); ctx.ellipse(sx, y, radius * 1.7, radius, -.12, 0, Math.PI * 2); ctx.fill();
-        }
-        for (let i = Math.floor(startX / 47); i < endX / 47; i++) {
-          const x = i * 47 + 15, sx = x - cameraX, y = terrainY(x) - 8;
-          ctx.fillStyle = i % 2 ? biome.grass : biome.highlight; ctx.fillRect(sx, y, 3, 3);
-        }
-      }
-      function drawScenery() {
-        const first = Math.floor(cameraX / 300) - 1;
-        const last = Math.ceil((cameraX + width) / 300) + 1;
-        for (let i = first; i <= last; i++) {
-          const x = i * 300 + 110 + (Math.abs(Math.sin(i * 83.1)) * 100);
-          const sx = x - cameraX;
-          const ground = terrainY(x);
-          const scale = .72 + Math.abs(Math.sin(i * 19.7)) * .55;
-          ctx.save(); ctx.translate(sx, ground); ctx.scale(scale, scale);
-          if (levelIndex === 1) {
-            ctx.fillStyle = "#47744b"; ctx.fillRect(-3, -33, 6, 32);
-            ctx.fillStyle = "#4e8d55"; ctx.beginPath(); ctx.ellipse(-10, -26, 7, 17, -.12, 0, Math.PI * 2); ctx.ellipse(10, -24, 7, 18, .12, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = "#a4bf68"; ctx.beginPath(); ctx.arc(0, -38, 6, 0, Math.PI * 2); ctx.fill();
-          } else if (levelIndex === 2) {
-            ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(-26, 0); ctx.lineTo(0, -52); ctx.lineTo(28, 0); ctx.closePath(); ctx.fill();
-            ctx.fillStyle = "#7394a3"; ctx.beginPath(); ctx.moveTo(0, -52); ctx.lineTo(11, -30); ctx.lineTo(5, -34); ctx.lineTo(0, -25); ctx.lineTo(-7, -35); ctx.closePath(); ctx.fill();
-          } else if (levelIndex === 3) {
-            ctx.fillStyle = "#685142"; ctx.fillRect(-4, -34, 8, 34);
-            ctx.fillStyle = i % 2 ? "#275e4c" : "#33735a";
-            for (let layer = 0; layer < 3; layer++) {
-              ctx.beginPath(); ctx.moveTo(0, -66 + layer * 13); ctx.lineTo(-19 + layer * 4, -26 + layer * 12); ctx.lineTo(19 - layer * 4, -26 + layer * 12); ctx.closePath(); ctx.fill();
-            }
-          } else if (levelIndex === 4) {
-            ctx.fillStyle = "#30333b"; ctx.beginPath(); ctx.ellipse(0, -4, 29, 10, 0, Math.PI, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = "#f36a39"; ctx.beginPath(); ctx.ellipse(0, -7, 13, 4, 0, Math.PI, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = "#ffb253"; ctx.beginPath(); ctx.arc(-4, -18 - Math.sin(runTime * 4 + i) * 3, 2, 0, Math.PI * 2); ctx.fill();
-          } else {
-            ctx.fillStyle = "#6b5039"; ctx.fillRect(-3, -30, 6, 30);
-            ctx.fillStyle = i % 2 ? "#4c8b52" : "#639e57"; ctx.beginPath(); ctx.arc(-2, -34, 16, 0, Math.PI * 2); ctx.arc(10, -28, 13, 0, Math.PI * 2); ctx.arc(-12, -27, 12, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = "#fff1bd"; ctx.beginPath(); ctx.arc(5, -33, 2, 0, Math.PI * 2); ctx.fill();
-          }
-          ctx.restore();
-        }
-      }
-      function drawItems() {
-        const first = Math.max(1, Math.floor(cameraX / 135) - 1);
-        const last = Math.ceil((cameraX + width) / 135) + 1;
-        for (let i = first; i <= last; i++) {
-          if (collected.has(i)) continue;
-          const x = i * 135 + 75, sx = x - cameraX;
-          if (i % 9 === 0) {
-            const y = terrainY(x) - 92;
-            ctx.save(); ctx.translate(sx, y);
-            ctx.fillStyle = "rgba(21,51,50,.16)"; ctx.beginPath(); ctx.ellipse(1, 3, 14, 4, 0, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = "#43c998"; roundedRect(-11, -17, 22, 30, 6); ctx.fill();
-            ctx.fillStyle = "#d9fff0"; ctx.fillRect(-3, -23, 8, 8); ctx.fillRect(0, -11, 3, 12);
-            ctx.restore();
-          } else if (i % 7 === 0) {
-            const y = terrainY(x) - 68;
-            ctx.save(); ctx.translate(sx, y); ctx.rotate(Math.PI / 4);
-            ctx.shadowColor = "rgba(70,220,255,.7)"; ctx.shadowBlur = 12;
-            ctx.fillStyle = "#5ee4ff"; ctx.beginPath(); ctx.moveTo(0, -12); ctx.lineTo(9, -3); ctx.lineTo(7, 8); ctx.lineTo(0, 13); ctx.lineTo(-7, 8); ctx.lineTo(-9, -3); ctx.closePath(); ctx.fill();
-            ctx.shadowBlur = 0; ctx.strokeStyle = "#d4fbff"; ctx.lineWidth = 2; ctx.stroke();
-            ctx.restore();
-          } else {
-            const y = terrainY(x) - 56;
-            ctx.save(); ctx.translate(sx, y);
-            ctx.shadowColor = "rgba(255,196,65,.7)"; ctx.shadowBlur = 12;
-            ctx.beginPath(); ctx.arc(0, 0, 11, 0, Math.PI * 2); ctx.fillStyle = "#f4bd42"; ctx.fill();
-            ctx.shadowBlur = 0; ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.strokeStyle = "#fff0a1"; ctx.lineWidth = 2; ctx.stroke();
-            ctx.restore();
-          }
-        }
-      }
-      function roundedRect(x, y, w, h, r) {
-        ctx.beginPath(); ctx.roundRect(x, y, w, h, r);
-      }
-      function drawBike() {
-        const sx = car.x - cameraX, sy = car.y;
-        const vehicle = vehicles[selectedVehicle];
-        const scale = vehicle.style === 2 ? .9 : vehicle.style === 3 ? 1 : .95;
-        const rearWheel = -36, frontWheel = 36, wheelRadius = 13;
-        const rearY = 24 + car.rearSuspension, frontY = 24 + car.frontSuspension;
-        ctx.save(); ctx.translate(sx, sy); ctx.rotate(car.angle); ctx.scale(scale, scale);
-        ctx.fillStyle = "rgba(23,43,53,.22)"; ctx.beginPath(); ctx.ellipse(0, 40, 48, 6, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#202c33";
-        ctx.beginPath(); ctx.arc(rearWheel, rearY, wheelRadius, 0, Math.PI * 2); ctx.arc(frontWheel, frontY, wheelRadius, 0, Math.PI * 2); ctx.fill();
-        for (const [wheelX, wheelY] of [[rearWheel, rearY], [frontWheel, frontY]]) {
-          ctx.save(); ctx.translate(wheelX, wheelY); ctx.rotate(wheelRotation);
-          ctx.fillStyle = "#b9c9c4"; ctx.beginPath(); ctx.arc(0, 0, wheelRadius * .7, 0, Math.PI * 2); ctx.fill();
-          ctx.strokeStyle = "#637571"; ctx.lineWidth = 1;
-          for (let spoke = 0; spoke < 8; spoke++) {
-            const angle = spoke * Math.PI / 4;
-            ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(angle) * wheelRadius * .66, Math.sin(angle) * wheelRadius * .66); ctx.stroke();
-          }
-          ctx.fillStyle = "#eef0db"; ctx.beginPath(); ctx.arc(0, 0, 2.5, 0, Math.PI * 2); ctx.fill();
-          ctx.restore();
-        }
-        const body = lightenColor(vehicle.body);
-        ctx.lineCap = "round"; ctx.lineJoin = "round";
-        ctx.strokeStyle = "#c1d0ca"; ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.moveTo(rearWheel, rearY); ctx.lineTo(-10, 4); ctx.lineTo(9, 11); ctx.lineTo(rearWheel, rearY);
-        ctx.moveTo(-10, 4); ctx.lineTo(18, 7); ctx.lineTo(frontWheel, frontY);
-        ctx.moveTo(18, 7); ctx.lineTo(9, 11); ctx.stroke();
-        ctx.strokeStyle = "#f0c84f"; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(rearWheel, rearY); ctx.lineTo(4, 12); ctx.lineTo(frontWheel, frontY); ctx.stroke();
-        ctx.strokeStyle = "#758985"; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(-29, 4); ctx.lineTo(-17, 15); ctx.moveTo(-29, 4); ctx.lineTo(-21, 12); ctx.stroke();
-        ctx.fillStyle = "#343e40";
-        ctx.beginPath(); ctx.ellipse(-4, 12, 12, 8, -.12, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#9caea5"; ctx.beginPath(); ctx.arc(-4, 12, 4, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "#29343a"; ctx.lineWidth = 6;
-        ctx.beginPath(); ctx.moveTo(-25, -2); ctx.lineTo(-10, -3); ctx.stroke();
-        ctx.fillStyle = body;
-        ctx.beginPath(); ctx.moveTo(-14, 1); ctx.quadraticCurveTo(-7, -4, 2, -2); ctx.lineTo(11, 3); ctx.lineTo(5, 7); ctx.lineTo(-12, 6); ctx.closePath(); ctx.fill();
-        ctx.fillStyle = vehicle.trim;
-        if (vehicle.style === 2) {
-          ctx.beginPath(); ctx.moveTo(5, 3); ctx.lineTo(21, 0); ctx.lineTo(28, 8); ctx.lineTo(12, 12); ctx.closePath(); ctx.fill();
-        } else if (vehicle.style === 1) {
-          ctx.beginPath(); ctx.moveTo(8, 3); ctx.lineTo(23, 3); ctx.lineTo(30, 12); ctx.lineTo(12, 12); ctx.closePath(); ctx.fill();
-        } else {
-          ctx.beginPath(); ctx.moveTo(7, 3); ctx.lineTo(22, 2); ctx.lineTo(27, 10); ctx.lineTo(12, 11); ctx.closePath(); ctx.fill();
-        }
-        ctx.fillStyle = "#263238";
-        ctx.beginPath(); ctx.moveTo(12, -5); ctx.lineTo(25, -7); ctx.lineTo(28, -4); ctx.lineTo(12, -2); ctx.closePath(); ctx.fill();
-        ctx.strokeStyle = "#dbe3da"; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(20, -2); ctx.lineTo(29, -11); ctx.lineTo(38, -11); ctx.moveTo(28, -11); ctx.lineTo(32, -14); ctx.stroke();
-        ctx.strokeStyle = "#f2f0d7"; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(32, -2); ctx.lineTo(40, 4); ctx.stroke();
-        ctx.fillStyle = "#fff0ad"; ctx.beginPath(); ctx.arc(40, 3, 4, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#db5147"; ctx.beginPath(); ctx.arc(-30, 1, 3, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "#7b433e"; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(-7, -1); ctx.lineTo(-12, -13); ctx.lineTo(2, -24); ctx.lineTo(18, -17); ctx.lineTo(24, -9); ctx.stroke();
-        ctx.fillStyle = "#25343b";
-        ctx.beginPath(); ctx.ellipse(1, -18, 6, 9, -.42, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = vehicle.trim;
-        ctx.beginPath(); ctx.arc(20, -24, 8, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#23323a";
-        ctx.beginPath(); ctx.arc(23, -24, 5, -.8, Math.PI * 1.2); ctx.fill();
-        ctx.fillStyle = "#d9f4f4"; ctx.fillRect(25, -26, 3, 3);
-        ctx.restore();
-      }
-      function drawParticles() {
-        for (const p of particles) {
-          ctx.globalAlpha = Math.max(0, p.life / .7); ctx.fillStyle = p.color;
-          ctx.beginPath(); ctx.arc(p.x - cameraX, p.y, 3, 0, Math.PI * 2); ctx.fill();
-        }
-        ctx.globalAlpha = 1;
-      }
-      function loop(now) {
-        const dt = Math.max(0, Math.min((now - lastTime) / 1000, .05)); lastTime = now;
-        update(dt); draw();
-        if (mode === "playing") animationId = requestAnimationFrame(loop);
-        else animationId = 0;
-      }
-      function setKey(code, value, repeat = false) {
-        if (code === "ArrowRight" || code === "KeyD") keys.throttle = value;
-        if (code === "ArrowLeft" || code === "KeyA") keys.brake = value;
-        if (code === "ArrowUp" || code === "KeyW") keys.tiltLeft = value;
-        if (code === "ArrowDown" || code === "KeyS") keys.tiltRight = value;
-        if (code === "ShiftLeft" || code === "ShiftRight") keys.boost = value;
-        if (code === "Space" && value && !repeat) togglePause();
-      }
-      function togglePause() {
-        if (mode === "playing") {
-          for (const key of Object.keys(keys)) keys[key] = false;
-          mode = "paused";
-          ui.panel.classList.remove("garage-panel");
-          ui.panel.innerHTML = '<div class="eyebrow">TAKE A BREATHER</div><h1>Paused.</h1><p class="description">Your ride will be right here when you’re ready.</p><button class="primary" id="startButton" data-action="resume">RESUME DRIVE&nbsp; ↗</button><button class="secondary" data-action="garage" style="width:100%;margin-top:9px">VISIT THE GARAGE</button>';
-          ui.panel.classList.remove("hidden");
-        } else if (mode === "paused") {
-          mode = "playing"; ui.panel.classList.add("hidden"); lastTime = performance.now();
-          if (!animationId) animationId = requestAnimationFrame(loop);
-        }
-      }
-      window.addEventListener("keydown", e => {
-        if (["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown", "Space"].includes(e.code)) e.preventDefault();
-        setKey(e.code, true, e.repeat);
-      });
-      window.addEventListener("keyup", e => setKey(e.code, false));
-      window.addEventListener("blur", () => { for (const key of Object.keys(keys)) keys[key] = false; });
-      document.querySelectorAll("[data-control]").forEach(button => {
-        const control = button.dataset.control;
-        const release = e => { e.preventDefault(); keys[control] = false; };
-        button.addEventListener("pointerdown", e => {
-          e.preventDefault();
-          ensureAudio();
-          keys[control] = true;
-          button.setPointerCapture(e.pointerId);
-        });
-        button.addEventListener("pointerup", release);
-        button.addEventListener("pointercancel", release);
-        button.addEventListener("lostpointercapture", release);
-      });
-      ui.panel.addEventListener("click", event => {
-        const button = event.target.closest("button");
-        if (!button) return;
-        if (button.dataset.carId !== undefined) {
-          const id = Number(button.dataset.carId);
-          const vehicle = vehicles[id];
-          if (!vehicle) return;
-          if (purchasedVehicles.has(id)) {
-            selectedVehicle = id;
-            saveGarage();
-            renderGarage(`Selected ${vehicle.name}.`);
-          } else if (wallet >= vehicle.price) {
-            wallet -= vehicle.price;
-            purchasedVehicles.add(id);
-            selectedVehicle = id;
-            saveGarage();
-            ui.coins.textContent = wallet;
-            renderGarage(`${vehicle.name} unlocked and ready to race!`);
-          } else {
-            renderGarage(`You need ${vehicle.price - wallet} more coins for ${vehicle.name}.`);
-          }
-          return;
-        }
-        if (button.dataset.upgrade !== undefined) {
-          buyUpgrade(button.dataset.upgrade);
-          return;
-        }
-        switch (button.dataset.action) {
-          case "start":
-            closeGarageIfOpen();
-            start();
-            break;
-          case "next-level":
-            levelIndex = levelIndex === TOTAL_LEVELS - 1 ? 0 : levelIndex + 1;
-            start();
-            break;
-          case "garage":
-            openGarage();
-            break;
-          case "garage-back":
-            closeGarage();
-            break;
-          case "resume":
-            mode = "playing";
-            ui.panel.classList.add("hidden");
-            lastTime = performance.now();
-            animationId = requestAnimationFrame(loop);
-            break;
-        }
-      });
-      function closeGarageIfOpen() {
-        if (ui.panel.classList.contains("garage-panel")) closeGarage();
-      }
-      ui.pause.addEventListener("click", togglePause);
-      ui.garageHud.addEventListener("click", openGarage);
-      ui.sound.addEventListener("click", () => {
-        soundOn = !soundOn;
-        ensureAudio();
-        ui.sound.style.color = soundOn ? "#f4f3e8" : "#d7f36a";
-        ui.sound.title = soundOn ? "Sound effects are on" : "Sound effects are off";
-      });
-      ui.fullscreen.addEventListener("click", () => {
-        const target = document.querySelector(".game");
-        const action = document.fullscreenElement ? document.exitFullscreen : target.requestFullscreen;
-        if (!action) {
-          ui.fullscreen.title = "Fullscreen is unavailable in this browser";
-          return;
-        }
-        action.call(document.fullscreenElement ? document : target).catch(() => { ui.fullscreen.title = "Fullscreen is unavailable in this browser"; });
-      });
-      document.addEventListener("fullscreenchange", () => {
-        ui.fullscreen.title = document.fullscreenElement ? "Exit fullscreen" : "Enter fullscreen";
-        resize();
-      });
-      window.addEventListener("resize", resize);
-      resize();
-      car.y = terrainY(car.x) - 45;
-      updateMap();
-      renderMenu();
-      draw();
-    })();
-  </script>
+<section class="section">
+  <div class="section-heading">
+    <span class="tag">WHY CHOOSE US</span>
+    <h2>Our <span class="gold">Promise</span></h2>
+  </div>
+
+  <div class="features">
+    <div class="feature">
+      <div class="symbol">🍽️</div>
+      <h3>Fresh Ingredients</h3>
+      <p>We focus on fresh ingredients and delicious flavors.</p>
+    </div>
+
+    <div class="feature">
+      <div class="symbol">👨‍🍳</div>
+      <h3>Expert Chefs</h3>
+      <p>Our chefs bring creativity and passion to every dish.</p>
+    </div>
+
+    <div class="feature">
+      <div class="symbol">✨</div>
+      <h3>Beautiful Ambience</h3>
+      <p>Enjoy a comfortable and welcoming dining experience.</p>
+    </div>
+  </div>
+</section>
+
+<!-- GALLERY -->
+
+<section class="menu-section" id="gallery">
+  <div class="section">
+    <div class="section-heading">
+      <span class="tag">OUR GALLERY</span>
+      <h2>A Taste Of <span class="gold">Elegance</span></h2>
+    </div>
+
+    <div class="gallery">
+      <img src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=700&q=80" alt="Fine dining">
+      <img src="https://images.unsplash.com/photo-1515003197210-e0cd7184f8b5?auto=format&fit=crop&w=700&q=80" alt="Restaurant food">
+      <img src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=700&q=80" alt="Restaurant interior">
+      <img src="https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=700&q=80" alt="Healthy meal">
+      <img src="https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=700&q=80" alt="Restaurant table">
+      <img src="https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=700&q=80" alt="Fresh ingredients">
+    </div>
+  </div>
+</section>
+
+<!-- RESERVATION -->
+
+<section class="reservation" id="reservation">
+  <div class="section">
+    <div class="section-heading">
+      <span class="tag">BOOK YOUR EXPERIENCE</span>
+      <h2>Reserve Your <span class="gold">Table</span></h2>
+      <p>Plan your next memorable dining experience.</p>
+    </div>
+
+    <form class="booking-box" id="bookingForm">
+
+      <div class="form-grid">
+        <input type="text" id="name" placeholder="Your Name" required>
+        <input type="email" id="email" placeholder="Your Email" required>
+      </div>
+
+      <div class="form-grid">
+        <input type="date" id="date" required>
+        <input type="time" id="time" required>
+      </div>
+
+      <select id="guests" required>
+        <option value="">Select Guests</option>
+        <option>1 Person</option>
+        <option>2 People</option>
+        <option>3 People</option>
+        <option>4 People</option>
+        <option>5 People</option>
+        <option>6+ People</option>
+      </select>
+
+      <textarea id="message" rows="3" placeholder="Special Request (Optional)"></textarea>
+
+      <button class="gold-btn" type="submit">Request Reservation</button>
+
+      <p class="form-message" id="formMessage"></p>
+    </form>
+  </div>
+</section>
+
+<!-- FOOTER -->
+
+<footer>
+  <div class="footer-grid">
+
+    <div>
+      <h3>SAFFRON.</h3>
+      <p>
+        Great food, warm hospitality and memorable moments.
+        Welcome to Saffron Restaurant.
+      </p>
+    </div>
+
+    <div>
+      <h3>Quick Links</h3>
+      <a href="#home">Home</a>
+      <a href="#about">About Us</a>
+      <a href="#menu">Our Menu</a>
+      <a href="#gallery">Gallery</a>
+    </div>
+
+    <div>
+      <h3>Contact</h3>
+      <p>Address: Your Restaurant Address</p>
+      <p>Phone: +92 300 0000000</p>
+      <p>Email: hello@example.com</p>
+    </div>
+
+  </div>
+
+  <div class="copyright">
+    © <span id="year"></span> Saffron Restaurant. All Rights Reserved.
+  </div>
+</footer>
+
+<a class="whatsapp" id="whatsappLink"
+href="https://wa.me/923000000000"
+target="_blank" rel="noopener">WhatsApp Order</a>
+
+<script>
+
+// MOBILE MENU
+
+const menuToggle = document.getElementById("menuToggle");
+const navLinks = document.getElementById("navLinks");
+
+menuToggle.addEventListener("click", () => {
+  navLinks.classList.toggle("active");
+});
+
+document.querySelectorAll(".nav-links a").forEach(link => {
+  link.addEventListener("click", () => {
+    navLinks.classList.remove("active");
+  });
+});
+
+// WHATSAPP NUMBER
+// Replace this with the real restaurant number.
+
+const WHATSAPP_NUMBER = "923000000000";
+
+function sendWhatsApp(message) {
+  const url = "https://wa.me/" + WHATSAPP_NUMBER +
+  "?text=" + encodeURIComponent(message);
+
+  window.open(url, "_blank", "noopener");
+}
+
+// FOOD ORDER
+
+function orderFood(food) {
+  sendWhatsApp("Hello! I want to order: " + food);
+}
+
+// RESERVATION FORM
+
+document.getElementById("bookingForm")
+.addEventListener("submit", function(e) {
+
+  e.preventDefault();
+
+  const name = document.getElementById("name").value.trim();
+  const email = document.getElementById("email").value.trim();
+  const date = document.getElementById("date").value;
+  const time = document.getElementById("time").value;
+  const guests = document.getElementById("guests").value;
+  const message = document.getElementById("message").value.trim();
+
+  if (!name || !email || !date || !time || !guests) {
+    return;
+  }
+
+  const bookingMessage =
+    "Hello! I would like to request a table reservation.\n\n" +
+    "Name: " + name + "\n" +
+    "Email: " + email + "\n" +
+    "Date: " + date + "\n" +
+    "Time: " + time + "\n" +
+    "Guests: " + guests + "\n" +
+    "Special Request: " + message;
+
+  document.getElementById("formMessage").textContent =
+    "Opening WhatsApp to send your reservation request...";
+
+  sendWhatsApp(bookingMessage);
+
+});
+
+// DATE
+
+document.getElementById("date").min =
+  new Date().toISOString().split("T")[0];
+
+// YEAR
+
+document.getElementById("year").textContent =
+  new Date().getFullYear();
+
+</script>
+
 </body>
 </html>
